@@ -1219,13 +1219,15 @@ class showdiction(QWidget):
             cishus.append(cishu)
         if len(cishus) == 1:
             try:
-                for node in cishus[0].tree().childrens():
-                    item = QStandardItem(node.text().replace("\n", ""))
-                    item.setData(node, DictNodeRole)
-                    tips = node.tips()
-                    if tips:
-                        item.setToolTip(tips)
-                    rows.append(item)
+                _tree = cishus[0].tree()
+                if _tree:
+                    for node in _tree.childrens():
+                        item = QStandardItem(node.text().replace("\n", ""))
+                        item.setData(node, DictNodeRole)
+                        tips = node.tips()
+                        if tips:
+                            item.setToolTip(tips)
+                        rows.append(item)
             except:
                 print_exc()
         else:
@@ -1599,6 +1601,35 @@ class searchwordW(closeashidewindow):
         self.ocr_once_signal.connect(lambda: rangeselct_function(self.ocr_do_function))
         self.__state = 0
 
+    def toggle_star(self):
+        word = self.searchtext.text().strip()
+        if not word:
+            return
+        manager = gobject.base.vocabulary_manager
+        if manager.is_starred(word):
+            manager.remove_word(word)
+        else:
+            sentence = self.ankiwindow.example.toPlainText()
+            manager.add_word(word, sentence=sentence)
+        self.update_star_ui(word)
+
+    def update_star_ui(self, word):
+        if not word:
+            return
+        is_starred = gobject.base.vocabulary_manager.is_starred(word)
+        icon_name = "fa.star" if is_starred else "fa.star-o"
+        self.star_button.setIcon(qtawesome.icon(icon_name, color="#ffc107" if is_starred else None))
+        self.star_button.setToolTip("移出生词本" if is_starred else "加入生词本")
+
+
+    def export_vocabulary(self):
+        path, _ = QFileDialog.getSaveFileName(self, "导出生词本", "vocabulary.csv", "CSV Files (*.csv)")
+        if path:
+            if gobject.base.vocabulary_manager.export_to_csv(path):
+                QMessageBox.information(self, "成功", "导出成功")
+            else:
+                QMessageBox.critical(self, "错误", "导出失败")
+
     @threader
     def ocr_do_function(self, rect, img=None):
         if not img:
@@ -1664,6 +1695,10 @@ class searchwordW(closeashidewindow):
             menu.addAction(act)
         if __:
             menu.addSeparator()
+        
+        export_action = menu.addAction("导出生词本")
+        export_action.triggered.connect(self.export_vocabulary)
+
         hists = menu.addAction("更多……")
         hists.setCheckable(True)
 
@@ -1710,6 +1745,10 @@ class searchwordW(closeashidewindow):
         self.searchtext.returnPressed.connect(searchbutton.clicked.emit)
 
         self.searchlayout.addWidget(searchbutton)
+
+        self.star_button = IconButton(icon="fa.star-o", tips="加入生词本")
+        self.star_button.clicked.connect(self.toggle_star)
+        self.searchlayout.addWidget(self.star_button)
 
         self.soundbutton = getIconButton(
             icon="fa.music",
@@ -1870,6 +1909,7 @@ class searchwordW(closeashidewindow):
         if not word:
             return
         self.__parsehistory(word, append, sentence, isfromhist)
+        self.update_star_ui(word)
         if globalconfig["is_search_word_auto_tts"]:
             gobject.base.read_text(self.searchtext.text())
         self.ankiwindow.maybereset(word)

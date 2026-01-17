@@ -75,6 +75,7 @@ from textio.textoutput.outputerbase import Base as outputerbase
 from myutils.updater import versioncheckthread
 from gui.qevent import DarkLightChangedEvent
 from gui.setting.translate import autostartllamacpp
+from myutils.vocabulary import VocabularyManager
 
 
 class BASEOBJECT(QObject):
@@ -223,6 +224,7 @@ class BASEOBJECT(QObject):
         self.thishastranslated = True
         self.service = TCPService()
         registerall(self.service)
+        self.vocabulary_manager = VocabularyManager()
 
     def createimageview(self, parent):
         m = LDialog(parent, Qt.WindowType.WindowCloseButtonHint)

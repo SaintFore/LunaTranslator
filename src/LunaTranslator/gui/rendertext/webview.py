@@ -358,10 +358,10 @@ class TextBrowser(WebviewWidget, somecommon):
             x, y, w, h = (_ * z for _ in __)
             pos = self.mapToGlobal(QPointF(x, y).toPoint())
             rect = QRectF()
-            rect.setTopLeft(pos)
+            rect.setTopLeft(QPointF(pos))
             rect.setWidth(w)
             rect.setHeight(h)
-            if not rect.contains(QCursor.pos()):
+            if not rect.contains(QPointF(QCursor.pos())):
                 continue
             return ww["word"]
 

@@ -224,6 +224,18 @@ class dialog_syssetting(LDialog):
             tips="内容背景颜色",
         )
         formLayout.addRow("内容背景颜色", color1)
+        
+        def export_vocabulary():
+            path, _ = QFileDialog.getSaveFileName(self, "导出生词本", "vocabulary.csv", "CSV Files (*.csv)")
+            if path:
+                if gobject.base.vocabulary_manager.export_to_csv(path):
+                    QMessageBox.information(self, "成功", "导出成功")
+                else:
+                    QMessageBox.critical(self, "错误", "导出失败")
+
+        export_btn = LPushButton("导出生词本")
+        export_btn.clicked.connect(export_vocabulary)
+        formLayout.addRow("生词本", export_btn)
 
         self.exec()
 
@@ -411,6 +423,15 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
                 callback=functools.partial(dialog_syssetting, self), tips="设置"
             )
         )
+        buttons.addWidget(
+            getIconButton(
+                icon="fa.star-o",
+                callback=self.togglestar,
+                tips="收藏单词",
+                name="starbtn"
+            )
+        )
+        self.starbtn = self.findChild(QObject, "starbtn")
         self.view = WordViewer(self, tabonehide=True, transp=True)
         self.view.use_bg_color_parser = True
         self.setCentralWidget(w)
@@ -478,6 +499,7 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
         from gui.rendertext.tooltipswidget import tooltipswidget
 
         tooltipswidget.hidetooltipwindow()
+        self.updatestaricon()
 
     def moveresult_1(self):
         if not self.isVisible():
@@ -486,3 +508,20 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
         # 仅按着键盘时，才追踪，否则不要动。
         if result == True:
             self.move(limitpos(QCursor.pos(), self, QPoint(1, 10)))
+
+    def togglestar(self):
+        if not self.view.currWord:
+            return
+        if gobject.base.vocabulary_manager.is_starred(self.view.currWord):
+            gobject.base.vocabulary_manager.remove_word(self.view.currWord)
+        else:
+            gobject.base.vocabulary_manager.add_word(self.view.currWord, sentence=self.view.save_sentence or "")
+        self.updatestaricon()
+
+    def updatestaricon(self):
+        if not self.view.currWord:
+            return
+        if gobject.base.vocabulary_manager.is_starred(self.view.currWord):
+            self.starbtn.setIcon(qtawesome.icon("fa.star", color="orange"))
+        else:
+            self.starbtn.setIcon(qtawesome.icon("fa.star-o", color=globalconfig["buttoncolor"]))
