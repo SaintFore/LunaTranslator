@@ -65,6 +65,11 @@ class VocabularyManager(QObject):
             return None
         return self.words.get(word.lower())
 
+    def get_all_words(self):
+        # Return list sorted by timestamp descending
+        return sorted(self.words.values(), key=lambda x: x.get('timestamp', 0), reverse=True)
+
+
     def export_to_csv(self, path):
         try:
             with open(path, 'w', newline='', encoding='utf-8-sig') as csvfile:

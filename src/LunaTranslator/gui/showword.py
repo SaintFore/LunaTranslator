@@ -1699,6 +1699,13 @@ class searchwordW(closeashidewindow):
         export_action = menu.addAction("导出生词本")
         export_action.triggered.connect(self.export_vocabulary)
 
+        manage_action = menu.addAction("管理生词本")
+        try:
+            from gui.vocabulary_viewer import VocabularyViewer
+            manage_action.triggered.connect(lambda: VocabularyViewer(self).show())
+        except Exception as e:
+            print(f"Error importing VocabularyViewer: {e}")
+
         hists = menu.addAction("更多……")
         hists.setCheckable(True)
 
