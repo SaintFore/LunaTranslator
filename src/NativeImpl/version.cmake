@@ -2,7 +2,7 @@
 set(VERSION_MAJOR 10)
 set(VERSION_MINOR 15)
 set(VERSION_PATCH 4)
-set(VERSION_REVISION 18)
+set(VERSION_REVISION 100)
 set(LUNA_VERSION "{${VERSION_MAJOR},${VERSION_MINOR},${VERSION_PATCH},${VERSION_REVISION}}")
 add_library(VERSION_DEF ${CMAKE_CURRENT_LIST_DIR}/version_def.cpp)
 target_compile_definitions(VERSION_DEF PRIVATE
@@ -12,7 +12,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/version/generate_product_version.cmake)
 generate_product_version(
 	versioninfo
    NAME "LunaTranslator"
-   COMPANY_COPYRIGHT "HIllya51 (C) 2025"
+   COMPANY_COPYRIGHT "SaintFore (Based on HIllya51)"
    ICON ${PATH_TO_APPLICATION_ICON}
    VERSION_MAJOR ${VERSION_MAJOR}
    VERSION_MINOR ${VERSION_MINOR}
