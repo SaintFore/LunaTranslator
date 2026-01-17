@@ -1600,6 +1600,9 @@ class dialog_setting_game(QDialog):
         super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
         dialog_setting_game.reference = self
 
+        if gameuid not in savehook_new_data:
+            return
+
         self.setWindowTitle(savehook_new_data[gameuid]["title"])
 
         self.setWindowIcon(getExeIcon(get_launchpath(gameuid), cache=True))

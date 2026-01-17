@@ -1,6 +1,7 @@
 from qtsymbols import *
 import functools
 import gobject, NativeUtils
+import qtawesome
 from myutils.config import globalconfig
 from gui.usefulwidget import (
     getcolorbutton,
@@ -15,7 +16,8 @@ from gui.usefulwidget import (
     limitpos,
 )
 from gui.showword import WordViewer
-from gui.dynalang import LDialog, LFormLayout
+from gui.dynalang import LDialog, LFormLayout, LPushButton
+from gui.vocabulary_viewer import VocabularyViewer
 
 
 class DraggableQWidget(QWidget):
@@ -235,7 +237,22 @@ class dialog_syssetting(LDialog):
 
         export_btn = LPushButton("导出生词本")
         export_btn.clicked.connect(export_vocabulary)
+
         formLayout.addRow("生词本", export_btn)
+
+        def open_vocabulary_manager():
+            # Use singleton or create new instance logic
+            if not hasattr(gobject.base, 'vocabulary_viewer') or not gobject.base.vocabulary_viewer:
+                gobject.base.vocabulary_viewer = VocabularyViewer(None)
+            
+            # Ensure it's not minimized and bring to front
+            gobject.base.vocabulary_viewer.show()
+            gobject.base.vocabulary_viewer.raise_()
+            gobject.base.vocabulary_viewer.activateWindow()
+
+        manage_btn = LPushButton("管理生词本")
+        manage_btn.clicked.connect(open_vocabulary_manager)
+        formLayout.addRow("管理", manage_btn)
 
         self.exec()
 
@@ -250,11 +267,38 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
     def gripSize(self):
         return globalconfig["WordViewTooltipBorder"]
 
+    def enterEvent(self, a0: QEvent):
+        self._leavetimer.stop()
+        return super().enterEvent(a0)
+
     def leaveEvent(self, a0: QEvent):
         if globalconfig["WordViewTooltipHideLeave"]:
-            if not self.geometry().contains(QCursor.pos()):
-                self.close()
+            self._leavetimer.start(50) # Reduced to 50ms for better responsiveness
         return super().leaveEvent(a0)
+
+    def _check_close_on_leave(self):
+        # Calculate distance from cursor to window
+        cursor_pos = QCursor.pos()
+        # Use mapToGlobal to get the true global rectangle of the content area
+        # self.geometry() might be relative if parent is set, though usually for tooltips it's okay.
+        # But mapToGlobal is safer.
+        top_left = self.mapToGlobal(QPoint(0, 0))
+        rect = QRect(top_left, self.size())
+        
+        # If inside, definitely don't close
+        if rect.contains(cursor_pos):
+            return
+
+        # Calculate properties for buffer zone
+        dx = max(rect.left() - cursor_pos.x(), 0, cursor_pos.x() - rect.right())
+        dy = max(rect.top() - cursor_pos.y(), 0, cursor_pos.y() - rect.bottom())
+        
+        if dx < 20 and dy < 20: # Buffer zone 20px
+             # Restart timer to check again later instead of closing immediately
+             self._leavetimer.start(100)
+             return
+             
+        self.close()
 
     def focusOutEvent(self, a0):
         if globalconfig["WordViewTooltipHideFocus"]:
@@ -350,6 +394,9 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
         self.__f.setInterval(50)
         self.__f.timeout.connect(self.__detectkey)
         self.__savestatus = None
+        self._leavetimer = QTimer(self)
+        self._leavetimer.setSingleShot(True)
+        self._leavetimer.timeout.connect(self._check_close_on_leave)
 
     def Leave(self):
         self.__f.stop()
@@ -423,14 +470,27 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
                 callback=functools.partial(dialog_syssetting, self), tips="设置"
             )
         )
-        buttons.addWidget(
-            getIconButton(
-                icon="fa.star-o",
-                callback=self.togglestar,
-                tips="收藏单词",
-                name="starbtn"
-            )
+        # self.findChild(QObject, "starbtn")  # dummy check or remove if unused, but the correct way to name it is:
+        # Actually, getIconButton returns the button. The previous code didn't assign it to a variable before adding to layout.
+        # To fix strictly what the user broke while keeping intent:
+        # The user code was:
+        # buttons.addWidget(
+        #     getIconButton(
+        #         icon="fa.star-o",
+        #         callback=self.togglestar,
+        #         tips="收藏单词",
+        #         name="starbtn"
+        #     )
+        # )
+        # self.starbtn = self.findChild(QObject, "starbtn")
+
+        btn = getIconButton(
+            icon="fa.star-o",
+            callback=self.togglestar,
+            tips="收藏单词",
         )
+        btn.setObjectName("starbtn")
+        buttons.addWidget(btn)
         self.starbtn = self.findChild(QObject, "starbtn")
         self.view = WordViewer(self, tabonehide=True, transp=True)
         self.view.use_bg_color_parser = True
@@ -495,7 +555,8 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
         # 1 系统圆角时会谜之遮挡鼠标
         self.move(limitpos(self.savepos, self, QPoint(1, 10)))
         self.show()
-        self.setFocus()
+        self.show()
+        # self.setFocus() # Do not steal focus to prevent flickering loops
         from gui.rendertext.tooltipswidget import tooltipswidget
 
         tooltipswidget.hidetooltipwindow()
@@ -510,18 +571,32 @@ class WordViewTooltip(resizableframeless, DraggableQWidget):
             self.move(limitpos(QCursor.pos(), self, QPoint(1, 10)))
 
     def togglestar(self):
-        if not self.view.currWord:
+        word = self.view.currWord
+        if not word:
             return
-        if gobject.base.vocabulary_manager.is_starred(self.view.currWord):
-            gobject.base.vocabulary_manager.remove_word(self.view.currWord)
+        word = word.strip()
+        if not word:
+            return
+
+        if gobject.base.vocabulary_manager.is_starred(word):
+            gobject.base.vocabulary_manager.remove_word(word)
         else:
-            gobject.base.vocabulary_manager.add_word(self.view.currWord, sentence=self.view.save_sentence or "")
+            gobject.base.vocabulary_manager.add_word(word, sentence=self.view.save_sentence or "")
         self.updatestaricon()
 
     def updatestaricon(self):
-        if not self.view.currWord:
+        word = self.view.currWord
+        if not word:
+            self.starbtn.setColor(globalconfig["buttoncolor"])
+            self.starbtn.setIconStr("fa.star-o")
             return
-        if gobject.base.vocabulary_manager.is_starred(self.view.currWord):
-            self.starbtn.setIcon(qtawesome.icon("fa.star", color="orange"))
-        else:
-            self.starbtn.setIcon(qtawesome.icon("fa.star-o", color=globalconfig["buttoncolor"]))
+        
+        word = word.strip()
+        is_starred = gobject.base.vocabulary_manager.is_starred(word)
+        
+        icon = "fa.star" if is_starred else "fa.star-o"
+        color = "#f1c40f" if is_starred else globalconfig["buttoncolor"]
+        
+        # Use IconButton methods to update state so it persists across clicks
+        self.starbtn.setColor(color)
+        self.starbtn.setIconStr(icon)

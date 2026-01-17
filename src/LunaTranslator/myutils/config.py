@@ -72,6 +72,11 @@ ocrerrorfix = tryreadconfig("ocrerrorfix.json")
 globalconfig: "dict[str, dict[str, str|dict|list] | list[str|dict] | str]" = (
     tryreadconfig("config.json")
 )
+# Sanitize font configuration to prevent crashes with DirectWrite and raster fonts (e.g., MS Sans Serif)
+if globalconfig.get("fonttype") == "MS Sans Serif":
+    globalconfig["fonttype"] = "Microsoft YaHei"
+if globalconfig.get("fonttype2") == "MS Sans Serif":
+    globalconfig["fonttype2"] = "Microsoft YaHei"
 magpie_config = tryreadconfig_1("Magpie/config.json", pathold="magpie_config.json")
 postprocessconfig = tryreadconfig("postprocessconfig.json")
 
